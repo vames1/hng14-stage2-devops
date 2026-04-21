@@ -258,7 +258,7 @@ jobs:
           docker compose up -d --no-deps --build api
           echo "Waiting for API health check..."
           HEALTHY=false
-          for i in $(seq 1 12); do
+          for i in $(seq 1 24); do
             STATUS=$(docker compose ps api --format json | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('Health','unknown') if isinstance(data,dict) else 'unknown')" 2>/dev/null || echo "unknown")
             HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
             echo "Attempt $i/12 - HTTP: $HTTP"
