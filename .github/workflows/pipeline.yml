@@ -192,13 +192,13 @@ jobs:
           ENVEOF
 
       - name: Start full stack
-        run: docker-compose up --build -d
+        run: docker compose up --build -d
 
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for services..."
           sleep 30
-          docker-compose ps
+          docker compose ps
 
       - name: Submit a job
         id: submit
@@ -224,7 +224,7 @@ jobs:
 
       - name: Tear down stack
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   deploy:
     name: Deploy
@@ -238,24 +238,24 @@ jobs:
       - name: Rolling update
         run: |
           echo "Performing rolling update..."
-          docker-compose pull || true
-          docker-compose up -d --no-deps --build api
+          docker compose pull || true
+          docker compose up -d --no-deps --build api
           
           echo "Waiting for API health check..."
           for i in $(seq 1 12); do
-            if docker-compose exec -T api python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" 2>/dev/null; then
+            if docker compose exec -T api python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" 2>/dev/null; then
               echo "API is healthy!"
               break
             fi
             if [ $i -eq 12 ]; then
               echo "Health check failed after 60 seconds! Rolling back..."
-              docker-compose up -d --no-deps api
+              docker compose up -d --no-deps api
               exit 1
             fi
             echo "Attempt $i/12 - waiting..."
             sleep 5
           done
           
-          docker-compose up -d --no-deps --build worker
-          docker-compose up -d --no-deps --build frontend
+          docker compose up -d --no-deps --build worker
+          docker compose up -d --no-deps --build frontend
           echo "Rolling update complete!"
