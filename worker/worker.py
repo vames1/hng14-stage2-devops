@@ -16,13 +16,16 @@ r = redis.Redis(
 
 running = True
 
+
 def handle_shutdown(signum, frame):
     global running
     logger.info("Shutdown signal received. Stopping worker...")
     running = False
 
+
 signal.signal(signal.SIGTERM, handle_shutdown)
 signal.signal(signal.SIGINT, handle_shutdown)
+
 
 def process_job(job_id):
     try:
@@ -34,6 +37,7 @@ def process_job(job_id):
     except Exception as e:
         logger.error(f"Failed to process job {job_id}: {e}")
         r.hset(f"job:{job_id}", "status", "failed")
+
 
 logger.info("Worker started. Waiting for jobs...")
 
