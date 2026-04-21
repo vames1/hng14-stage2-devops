@@ -1,21 +1,18 @@
 # Stage 1 - Builder
-FROM node:18-slim AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files first for better layer caching
 COPY package.json .
-
-# Install dependencies
 RUN npm install --production
 
 # Stage 2 - Production
-FROM node:18-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy installed dependencies from builder
 COPY --from=builder /app/node_modules ./node_modules
@@ -25,7 +22,7 @@ COPY app.js .
 COPY views ./views
 
 # Set ownership
-RUN chown -R appuser:appuser /app
+RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
 USER appuser

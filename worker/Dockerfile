@@ -1,5 +1,5 @@
 # Stage 1 - Builder
-FROM python:3.11-slim AS builder
+FROM python:3.11-alpine AS builder
 
 WORKDIR /app
 
@@ -7,12 +7,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2 - Production
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 WORKDIR /app
 
 # Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy installed packages from builder
 COPY --from=builder /root/.local /home/appuser/.local
@@ -21,7 +21,7 @@ COPY --from=builder /root/.local /home/appuser/.local
 COPY worker.py .
 
 # Set ownership
-RUN chown -R appuser:appuser /app
+RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
 USER appuser
