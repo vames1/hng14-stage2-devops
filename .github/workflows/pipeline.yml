@@ -235,27 +235,57 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Rolling update
+      - name: Create .env file
         run: |
-          echo "Performing rolling update..."
-          docker compose pull || true
+          cat > .env << ENVEOF
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_PASSWORD=testpassword123
+          API_URL=http://api:8000
+          FRONTEND_PORT=3000
+          ENVEOF
+
+      - name: Start initial stack
+        run: |
+          docker compose up --build -d
+          echo "Waiting for stack to be healthy..."
+          sleep 30
+          docker compose ps
+
+      - name: Rolling update API
+        run: |
+          echo "Starting rolling update for API..."
           docker compose up -d --no-deps --build api
-          
           echo "Waiting for API health check..."
+          HEALTHY=false
           for i in $(seq 1 12); do
-            if docker compose exec -T api python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" 2>/dev/null; then
+            STATUS=$(docker compose ps api --format json | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('Health','unknown') if isinstance(data,dict) else 'unknown')" 2>/dev/null || echo "unknown")
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
+            echo "Attempt $i/12 - HTTP: $HTTP"
+            if [ "$HTTP" = "200" ]; then
               echo "API is healthy!"
+              HEALTHY=true
               break
             fi
-            if [ $i -eq 12 ]; then
-              echo "Health check failed after 60 seconds! Rolling back..."
-              docker compose up -d --no-deps api
-              exit 1
-            fi
-            echo "Attempt $i/12 - waiting..."
             sleep 5
           done
-          
-          docker compose up -d --no-deps --build worker
+          if [ "$HEALTHY" != "true" ]; then
+            echo "Health check failed! Rolling back..."
+            docker compose up -d --no-deps api
+            exit 1
+          fi
+
+      - name: Rolling update Worker
+        run: docker compose up -d --no-deps --build worker
+
+      - name: Rolling update Frontend
+        run: |
           docker compose up -d --no-deps --build frontend
           echo "Rolling update complete!"
+
+      - name: Verify final stack
+        run: docker compose ps
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
